@@ -14,10 +14,20 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.get("/api/data", rateLimiter, (req, res) => {
+app.get("/api/data", rateLimiter(3, 10 * 1000), (req, res) => {
   res.status(200).json({
     success: true,
     message: "Request accepted",
+    data: {
+      user: "demo-user",
+    },
+  });
+});
+
+app.get("/api/fast-data", rateLimiter(5, 10 * 1000), (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Fast data request accepted",
     data: {
       user: "demo-user",
     },
