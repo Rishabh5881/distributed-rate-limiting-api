@@ -1,22 +1,33 @@
+const redisClient = require("../config/redis");
+
 const rateLimiter = (limit, windowMs) => {
-  const requests = [];
-  return (req, res, next) => {
+  const key = "rate-limit:global";
+
+  return async (req, res, next) => {
     const now = Date.now();
+    const cutoff = now - windowMs;
 
-    requests.push(now);
+    const requestId = `${now}-${Math.random()}`;
 
-    while (
-      requests.length > 0 &&
-      requests[0] <= now - windowMs
-    ) {
-      requests.shift();
-    }
+    const results = await redisClient
+      .multi()
+      .zRemRangeByScore(key, 0, cutoff)
+      .zAdd(key, {
+        score: now,
+        value: requestId,
+      })
+      .zCard(key)
+      .zRangeWithScores(key, 0, 0)
+      .exec();
 
-    console.log("Request count:", requests.length);
+    const requestCount = results[2];
+    const oldestRequest = results[3][0];
 
-    if (requests.length > limit) {
+    console.log("Request count:", requestCount);
+
+    if (requestCount > limit) {
       const retryAfter = Math.ceil(
-        (requests[0] + windowMs - now) / 1000
+        (oldestRequest.score + windowMs - now) / 1000
       );
 
       res.set("Retry-After", retryAfter);

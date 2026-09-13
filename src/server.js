@@ -1,5 +1,6 @@
 const express = require("express");
 const rateLimiter = require("./middleware/rateLimiter");
+const redisClient = require("./config/redis");
 
 const app = express();
 
@@ -33,6 +34,15 @@ app.get("/api/fast-data", rateLimiter(5, 10 * 1000), (req, res) => {
     },
   });
 });
+
+redisClient
+  .connect()
+  .then(() => {
+    console.log("Redis connected");
+  })
+  .catch((error) => {
+    console.error("Redis connection failed:", error);
+  });
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
