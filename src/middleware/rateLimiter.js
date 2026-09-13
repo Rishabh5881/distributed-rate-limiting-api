@@ -24,6 +24,7 @@ const rateLimiter = (limit, windowMs) => {
       return res.status(429).json({
         success: false,
         message: "Too many requests",
+        retryAfter,
       });
     }
 
