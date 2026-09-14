@@ -1,9 +1,13 @@
 const redisClient = require("../config/redis");
 
 const rateLimiter = (limit, windowMs) => {
-  const key = "rate-limit:global";
-
   return async (req, res, next) => {
+   const clientIp = req.ip;
+   const userId = req.headers["x-user-id"];
+   const key = userId
+   ? `rate-limit:user:${userId}`
+   : `rate-limit:ip:${clientIp}`;
+
     const now = Date.now();
     const cutoff = now - windowMs;
 
@@ -12,6 +16,12 @@ const rateLimiter = (limit, windowMs) => {
     await redisClient.zRemRangeByScore(key, 0, cutoff);
 
     const requestCount = await redisClient.zCard(key);
+    res.set("X-RateLimit-Limit", limit);
+    res.set("X-RateLimit-Remaining", Math.max(0, limit - requestCount - 1));
+    res.set(
+    "X-RateLimit-Reset",
+    Math.ceil(windowMs / 1000)
+    );
 
     console.log("Request count:", requestCount);
 
