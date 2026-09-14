@@ -9,25 +9,17 @@ const rateLimiter = (limit, windowMs) => {
 
     const requestId = `${now}-${Math.random()}`;
 
-    const results = await redisClient
-      .multi()
-      .zRemRangeByScore(key, 0, cutoff)
-      .zAdd(key, {
-        score: now,
-        value: requestId,
-      })
-      .zCard(key)
-      .zRangeWithScores(key, 0, 0)
-      .exec();
+    await redisClient.zRemRangeByScore(key, 0, cutoff);
 
-    const requestCount = results[2];
-    const oldestRequest = results[3][0];
+    const requestCount = await redisClient.zCard(key);
 
     console.log("Request count:", requestCount);
 
-    if (requestCount > limit) {
+    if (requestCount >= limit) {
+      const oldestRequest = await redisClient.zRangeWithScores(key, 0, 0);
+
       const retryAfter = Math.ceil(
-        (oldestRequest.score + windowMs - now) / 1000
+        (oldestRequest[0].score + windowMs - now) / 1000
       );
 
       res.set("Retry-After", retryAfter);
@@ -38,6 +30,11 @@ const rateLimiter = (limit, windowMs) => {
         retryAfter,
       });
     }
+
+    await redisClient.zAdd(key, {
+      score: now,
+      value: requestId,
+    });
 
     next();
   };
